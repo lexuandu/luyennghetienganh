@@ -182,13 +182,13 @@
         <div class="playlist-bar">
             <label for="trackSelect">🎵 Chọn bài nghe:</label>
             <select id="trackSelect" onchange="handleTrackChange(this.value)">
-                <option value="">-- Đang dò file MP3... --</option>
+                <option value="">-- Đang dò file MP3 cùng tên TXT --</option>
             </select>
         </div>
 
         <!-- Khung dự phòng khi mở trực tiếp trên máy (file://) -->
         <div class="local-fallback" id="localFallback" style="display:none;">
-            <b>Mở file thủ công (trên thiết bị):</b> Bạn có thể chọn cùng lúc nhiều file <code>.mp3</code> và <code>.txt</code> tương ứng:
+            <b>Mở file thủ công (trên thiết bị):</b> Bạn có thể chọn cùng lúc các cặp file <code>.mp3</code> và <code>.txt</code> tương ứng:
             <div style="margin-top: 8px;">
                 <input type="file" id="multiFileUpload" accept=".mp3,.txt,audio/*" multiple>
             </div>
@@ -230,12 +230,10 @@
         const localFallback = document.getElementById('localFallback');
         const trackSelect = document.getElementById('trackSelect');
         
-        // Danh sách tên file mặc định để dò tìm tự động (1.mp3, 2.mp3, ... đến 30.mp3)
-        // Nếu bạn đặt tên file đặc biệt (vd: bai1.mp3), có thể thêm 'bai1' vào mảng CUSTOM_TRACKS bên dưới
         const CUSTOM_TRACKS = []; 
         const MAX_NUMBER_SCAN = 30;
 
-        let availableTracks = []; // Lưu danh sách các bài tìm thấy: [{ name: '1', mp3Url: '1.mp3', txtUrl: '1.txt', txtContent: null }]
+        let availableTracks = []; 
         let sentences = [];
         let isPlainTextWithoutTime = false;
         let currentSentenceIndex = -1;
@@ -252,15 +250,15 @@
             mainSubEng.innerHTML = engText;
         }
 
-        // --- 1. TỰ ĐỘNG DÒ TÌM CÁC FILE MP3 CÙNG THƯ MỤC ---
+        // --- 1. TỰ ĐỘNG DÒ TÌM CÁC CẶP FILE MP3 VÀ TXT CÙNG TÊN ---
         window.onload = async () => {
-            await discoverMp3Files();
+            await discoverTracks();
         };
 
-        async function discoverMp3Files() {
+        async function discoverTracks() {
             const foundNames = new Set();
 
-            // Cách A: Nếu chạy trên GitHub Pages (*.github.io), dùng GitHub API lấy toàn bộ file .mp3 trong thư mục
+            // A. Dò qua GitHub API nếu chạy trên GitHub Pages
             if (location.hostname.endsWith('github.io')) {
                 try {
                     const owner = location.hostname.split('.')[0];
@@ -276,35 +274,48 @@
                         if (res.ok) {
                             const items = await res.json();
                             if (Array.isArray(items)) {
+                                const mp3Files = new Set();
+                                const txtFiles = new Set();
                                 items.forEach(item => {
-                                    if (item.name && item.name.toLowerCase().endsWith('.mp3')) {
-                                        foundNames.add(item.name.slice(0, -4));
+                                    if (item.name) {
+                                        const lower = item.name.toLowerCase();
+                                        if (lower.endsWith('.mp3')) mp3Files.add(item.name.slice(0, -4));
+                                        if (lower.endsWith('.txt')) txtFiles.add(item.name.slice(0, -4));
                                     }
                                 });
+                                // Chỉ lấy các bài có đủ cả file .mp3 và file .txt cùng tên
+                                mp3Files.forEach(name => {
+                                    if (txtFiles.has(name)) foundNames.add(name);
+                                });
                             }
-                        }
-                    }
-                } catch (e) {
-                    console.log('Bỏ qua GitHub API, chuyển sang dò trực tiếp.');
-                }
-            }
-
-            // Cách B: Thử đọc Directory Listing nếu chạy trên Local Server (Python http.server, Live Server...)
-            if (foundNames.size === 0 && location.protocol.startsWith('http')) {
-                try {
-                    const dirRes = await fetch('./');
-                    if (dirRes.ok) {
-                        const html = await dirRes.text();
-                        const matches = html.matchAll(/href=["']([^"']+\.mp3)["']/gi);
-                        for (const m of matches) {
-                            const fileName = decodeURIComponent(m[1].split('/').pop());
-                            foundNames.add(fileName.slice(0, -4));
                         }
                     }
                 } catch (e) {}
             }
 
-            // Cách C: Quét các file đánh số 1.mp3, 2.mp3... và CUSTOM_TRACKS
+            // B. Dò qua thư mục Local Server
+            if (foundNames.size === 0 && location.protocol.startsWith('http')) {
+                try {
+                    const dirRes = await fetch('./');
+                    if (dirRes.ok) {
+                        const html = await dirRes.text();
+                        const mp3Files = new Set();
+                        const txtFiles = new Set();
+                        
+                        for (const m of html.matchAll(/href=["']([^"']+\.mp3)["']/gi)) {
+                            mp3Files.add(decodeURIComponent(m[1].split('/').pop()).slice(0, -4));
+                        }
+                        for (const m of html.matchAll(/href=["']([^"']+\.txt)["']/gi)) {
+                            txtFiles.add(decodeURIComponent(m[1].split('/').pop()).slice(0, -4));
+                        }
+                        mp3Files.forEach(name => {
+                            if (txtFiles.has(name)) foundNames.add(name);
+                        });
+                    }
+                } catch (e) {}
+            }
+
+            // C. Dò quét dãy số (1, 2, 3...)
             if (foundNames.size === 0 && location.protocol.startsWith('http')) {
                 const candidates = [...CUSTOM_TRACKS];
                 for (let i = 1; i <= MAX_NUMBER_SCAN; i++) {
@@ -312,8 +323,9 @@
                 }
                 const checks = candidates.map(async (baseName) => {
                     try {
-                        const res = await fetch(`${baseName}.mp3`, { method: 'HEAD' });
-                        if (res.ok) return baseName;
+                        const resMp3 = await fetch(`${baseName}.mp3`, { method: 'HEAD' });
+                        const resTxt = await fetch(`${baseName}.txt`, { method: 'HEAD' });
+                        if (resMp3.ok && resTxt.ok) return baseName;
                     } catch (e) {}
                     return null;
                 });
@@ -323,7 +335,6 @@
                 });
             }
 
-            // Sắp xếp tên file theo thứ tự tự nhiên (1, 2, 3... 10)
             const sortedNames = Array.from(foundNames).sort((a, b) => 
                 a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
             );
@@ -338,8 +349,8 @@
                 populateTrackSelect();
                 await loadTrack(availableTracks[0].name);
             } else {
-                trackSelect.innerHTML = `<option value="">-- Hãy chọn file bên dưới --</option>`;
-                updateMainSubtitle("Vui lòng chọn các file .mp3 và .txt từ máy của bạn.");
+                trackSelect.innerHTML = `<option value="">-- Không tìm thấy cặp MP3 + TXT tự động --</option>`;
+                updateMainSubtitle("Vui lòng chọn thủ công các cặp file .mp3 và .txt bên dưới.");
                 localFallback.style.display = 'block';
             }
         }
@@ -349,34 +360,29 @@
             availableTracks.forEach(track => {
                 const opt = document.createElement('option');
                 opt.value = track.name;
-                opt.textContent = `${track.name}.mp3`;
+                opt.textContent = `${track.name}.mp3 (kèm ${track.name}.txt)`;
                 trackSelect.appendChild(opt);
             });
         }
 
         function handleTrackChange(trackName) {
-            if (trackName) {
-                loadTrack(trackName);
-            }
+            if (trackName) loadTrack(trackName);
         }
 
-        // --- 2. TẢI CẶP FILE MP3 VÀ TXT TƯƠNG ỨNG ---
+        // --- 2. TẢI CẶP FILE MP3 VÀ TXT ---
         async function loadTrack(trackName) {
             const track = availableTracks.find(t => t.name === trackName);
             if (!track) return;
 
-            // Reset các chế độ lặp khi đổi bài
             resetAB();
             stopSentenceLoop();
             currentSentenceIndex = -1;
             sentences = [];
             sentencesListDiv.innerHTML = '';
 
-            // Gán nguồn phát MP3
             media.src = track.mp3Url;
             media.load();
 
-            // Nạp ngầm MP3 dạng Blob để tua/lặp mượt khi offline (chỉ áp dụng với URL mạng)
             if (!track.mp3Url.startsWith('blob:')) {
                 fetch(track.mp3Url)
                     .then(res => res.ok ? res.blob() : Promise.reject())
@@ -390,7 +396,6 @@
                     .catch(() => {});
             }
 
-            // Tải nội dung file .txt tương ứng
             try {
                 let text = track.txtContent;
                 if (text === null && track.txtUrl) {
@@ -400,16 +405,16 @@
                 }
                 if (text) {
                     processTXT(text);
-                    updateMainSubtitle(`Đã tải <b>${track.name}.mp3</b> & <b>${track.name}.txt</b>.<br>Bấm Play hoặc chọn câu để nghe.`);
+                    updateMainSubtitle(`Đang phát: <b>${track.name}.mp3</b>`);
                 } else {
                     throw new Error("Thiếu file txt");
                 }
             } catch (error) {
-                updateMainSubtitle(`Đã tải <b>${track.name}.mp3</b> (Chưa tìm thấy file <b>${track.name}.txt</b>).`);
+                updateMainSubtitle(`Không tìm thấy file nội dung <b>${track.name}.txt</b> tương ứng.`);
             }
         }
 
-        // Hỗ trợ chọn nhiều file .mp3 và .txt trực tiếp từ máy
+        // Chọn thủ công nhiều file
         document.getElementById('multiFileUpload').addEventListener('change', async (e) => {
             const files = Array.from(e.target.files);
             if (files.length === 0) return;
@@ -432,7 +437,7 @@
             }
 
             const newTracks = Object.values(trackMap)
-                .filter(t => t.mp3Url !== '')
+                .filter(t => t.mp3Url !== '' && t.txtContent !== null)
                 .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 
             if (newTracks.length > 0) {
@@ -440,15 +445,14 @@
                 populateTrackSelect();
                 await loadTrack(availableTracks[0].name);
             } else {
-                alert("Vui lòng chọn ít nhất 1 file .mp3!");
+                alert("Vui lòng chọn ít nhất một cặp file .mp3 và .txt có cùng tên nhau!");
             }
         });
 
-        // --- 3. XỬ LÝ NỘI DUNG FILE TXT (HỖ TRỢ CẢ ĐỊNH DẠNG CÓ MỐC THỜI GIAN VÀ VĂN BẢN THUẦN) ---
+        // --- 3. XỬ LÝ NỘI DUNG FILE TXT ---
         function processTXT(data) {
             const cleanData = data.replace(/\r/g, '').trim();
             
-            // Trường hợp 1: Trong file .txt có chứa mốc thời gian kiểu SRT (00:00:00,000 --> 00:00:05,000)
             if (cleanData.includes('-->')) {
                 isPlainTextWithoutTime = false;
                 const blocks = cleanData.split('\n\n');
@@ -477,9 +481,9 @@
                 sentences = groupSentences(parsedData);
                 renderSentencesList();
             } else {
-                // Trường hợp 2: File .txt là văn bản thuần túy không có mốc thời gian -> Tự tách câu theo dấu chấm (. ! ?)
                 isPlainTextWithoutTime = true;
                 const cleanedText = cleanData
+                    .replace(/^[A-Za-z\s]+:\s*/gm, '') // Lọc bỏ tên người nói dạng "J: ", "M: " nếu có
                     .replace(/\[.*?\]/g, '')
                     .replace(/>>/g, '')
                     .replace(/\n+/g, ' ')
@@ -498,7 +502,6 @@
             }
         }
 
-        // Nếu file .txt không có sẵn mốc thời gian, tự động chia thời gian theo độ dài từng câu khi MP3 tải xong
         function distributeTimestampsByLength() {
             if (!isPlainTextWithoutTime || sentences.length === 0) return;
             const totalDuration = (media.duration && isFinite(media.duration)) ? media.duration : sentences.length * 5;
@@ -545,9 +548,7 @@
                     }
                 }
             }
-            if (currentSentence) {
-                result.push(currentSentence);
-            }
+            if (currentSentence) result.push(currentSentence);
             return result;
         }
 
@@ -817,7 +818,6 @@
             btn.style.color = "#fff";
         }
 
-        // Đăng ký Service Worker để lưu Offline
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
