@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luyện Nghe Tiếng Anh</title>
+    <link rel="manifest" href="./manifest.json">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 1px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 5px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .playlist-bar {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .playlist-bar label {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 0.95em;
+        }
+        .playlist-bar select {
+            flex: 1;
+            padding: 8px 10px;
+            font-size: 1em;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background-color: #fff;
+            font-weight: bold;
+            color: #007bff;
+            outline: none;
+            min-width: 160px;
+        }
+        audio {
+            width: 100%;
+            margin-bottom: 15px;
+            outline: none;
+        }
+        .subtitle-display {
+            text-align: center;
+            min-height: 3em;
+            margin: 15px 0;
+            padding: 15px 12px;
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            border-radius: 8px;
+            text-shadow: 1px 1px 2px black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .subtitle-eng {
+            font-size: 1.5em;
+            line-height: 1.4;
+            font-weight: bold;
+        }
+        .settings-panel {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+        }
+        .settings-panel h3 { margin-top: 0; margin-bottom: 15px; color: #333; }
+        
+        .sentences-list {
+            max-height: 450px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 4px;
+            background: #fff;
+        }
+        .sentence-item {
+            padding: 8px 4px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s;
+            line-height: 1.5;
+            font-size: 1.05em;
+            display: flex;
+            align-items: flex-start;
+        }
+        .sentence-item:hover { background-color: #f0f0f0; }
+        
+        .sentence-item.current {
+            border-left: 5px solid #007bff;
+            font-weight: bold;
+            background-color: #e3f2fd;
+        }
+        .sentence-item.selected {
+            background-color: #fff3cd;
+        }
+        .sentence-item.selected.current {
+            background-color: #ffe8a1;
+        }
+
+        .sentence-checkbox {
+            margin-right: 3px;
+            margin-top: 3px;
+            transform: scale(1.3);
+            cursor: pointer;
+        }
+        .sentence-number {
+            font-weight: bold;
+            color: #555;
+            margin-right: 3px;
+            min-width: 18px;
+        }
+        .sentence-text {
+            flex: 1;
+            text-align: justify;
+            text-justify: inter-word;
+        }
+        .time-badge {
+            color: #888;
+            font-size: 0.85em;
+            font-family: monospace;
+            background: #eee;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: 5px;
+            display: inline-block;
+            font-weight: normal;
+        }
+        
+        .local-fallback {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 0.95em;
+            border-radius: 4px;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 12px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1em;
+            transition: background 0.2s;
+            flex: 1;
+            min-width: 200px;
+        }
+        button:hover { background-color: #0056b3; }
+        button.active { background-color: #dc3545 !important; }
+        .btn-secondary { background-color: #6c757d; flex: none; }
+        .btn-secondary:hover { background-color: #5a6268; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 style="text-align: center; color: #2c3e50; margin: 10px 0;">🎧 Trình Nghe Lặp Câu</h2>
+        
+        <!-- Thanh chọn bài nghe MP3 -->
+        <div class="playlist-bar">
+            <label for="trackSelect">🎵 Chọn bài nghe:</label>
+            <select id="trackSelect" onchange="handleTrackChange(this.value)">
+                <option value="">-- Đang dò file MP3... --</option>
+            </select>
+        </div>
+
+        <!-- Khung dự phòng khi mở trực tiếp trên máy (file://) -->
+        <div class="local-fallback" id="localFallback" style="display:none;">
+            <b>Mở file thủ công (trên thiết bị):</b> Bạn có thể chọn cùng lúc nhiều file <code>.mp3</code> và <code>.txt</code> tương ứng:
+            <div style="margin-top: 8px;">
+                <input type="file" id="multiFileUpload" accept=".mp3,.txt,audio/*" multiple>
+            </div>
+        </div>
+
+        <audio id="myMedia" controls>
+            Trình duyệt không hỗ trợ thẻ audio.
+        </audio>
+
+        <div class="subtitle-display" id="currentSubtitle">
+            <div class="subtitle-eng" id="mainSubEng">Đang tải dữ liệu...</div>
+        </div>
+
+        <div class="settings-panel">
+            <h3>🔄 1. Chế độ Lặp đoạn AB tự do</h3>
+            <button id="btnAB" onclick="handleABClick()">
+                [ A-B ] Bấm vào đây để đặt mốc A
+            </button>
+        </div>
+
+        <div class="settings-panel">
+            <h3>📑 2. Chế độ Lặp Danh Sách Câu</h3>
+            <p style="margin-top:0; color:#555; font-size:0.95em;">Tích chọn một hoặc nhiều câu bên dưới. Hệ thống sẽ liên tục lặp lại các câu bạn đã chọn.</p>
+            <div class="controls">
+                <button id="btnToggleLoop" onclick="toggleSentenceLoop()">🔄 Bắt Đầu Lặp Các Câu Đã Chọn</button>
+                <button class="btn-secondary" onclick="clearSelection()">Xóa Chọn Tất Cả</button>
+            </div>
+            
+            <div class="sentences-list" id="sentencesList">
+                <!-- Danh sách câu hiển thị tại đây -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const media = document.getElementById('myMedia');
+        const mainSubEng = document.getElementById('mainSubEng');
+        const sentencesListDiv = document.getElementById('sentencesList');
+        const localFallback = document.getElementById('localFallback');
+        const trackSelect = document.getElementById('trackSelect');
+        
+        // Danh sách tên file mặc định để dò tìm tự động (1.mp3, 2.mp3, ... đến 30.mp3)
+        // Nếu bạn đặt tên file đặc biệt (vd: bai1.mp3), có thể thêm 'bai1' vào mảng CUSTOM_TRACKS bên dưới
+        const CUSTOM_TRACKS = []; 
+        const MAX_NUMBER_SCAN = 30;
+
+        let availableTracks = []; // Lưu danh sách các bài tìm thấy: [{ name: '1', mp3Url: '1.mp3', txtUrl: '1.txt', txtContent: null }]
+        let sentences = [];
+        let isPlainTextWithoutTime = false;
+        let currentSentenceIndex = -1;
+        
+        let abState = 0; 
+        let loopA = 0;
+        let loopB = 0;
+        let isABLoopMode = false;
+
+        let selectedSentences = [];
+        let isSentenceLoopMode = false;
+
+        function updateMainSubtitle(engText) {
+            mainSubEng.innerHTML = engText;
+        }
+
+        // --- 1. TỰ ĐỘNG DÒ TÌM CÁC FILE MP3 CÙNG THƯ MỤC ---
+        window.onload = async () => {
+            await discoverMp3Files();
+        };
+
+        async function discoverMp3Files() {
+            const foundNames = new Set();
+
+            // Cách A: Nếu chạy trên GitHub Pages (*.github.io), dùng GitHub API lấy toàn bộ file .mp3 trong thư mục
+            if (location.hostname.endsWith('github.io')) {
+                try {
+                    const owner = location.hostname.split('.')[0];
+                    const pathParts = location.pathname.split('/').filter(Boolean);
+                    if (pathParts.length > 0) {
+                        const repo = pathParts[0];
+                        let dirPath = pathParts.slice(1).join('/');
+                        if (dirPath.endsWith('.html')) {
+                            dirPath = dirPath.substring(0, dirPath.lastIndexOf('/'));
+                        }
+                        const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${dirPath}`;
+                        const res = await fetch(apiUrl);
+                        if (res.ok) {
+                            const items = await res.json();
+                            if (Array.isArray(items)) {
+                                items.forEach(item => {
+                                    if (item.name && item.name.toLowerCase().endsWith('.mp3')) {
+                                        foundNames.add(item.name.slice(0, -4));
+                                    }
+                                });
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.log('Bỏ qua GitHub API, chuyển sang dò trực tiếp.');
+                }
+            }
+
+            // Cách B: Thử đọc Directory Listing nếu chạy trên Local Server (Python http.server, Live Server...)
+            if (foundNames.size === 0 && location.protocol.startsWith('http')) {
+                try {
+                    const dirRes = await fetch('./');
+                    if (dirRes.ok) {
+                        const html = await dirRes.text();
+                        const matches = html.matchAll(/href=["']([^"']+\.mp3)["']/gi);
+                        for (const m of matches) {
+                            const fileName = decodeURIComponent(m[1].split('/').pop());
+                            foundNames.add(fileName.slice(0, -4));
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            // Cách C: Quét các file đánh số 1.mp3, 2.mp3... và CUSTOM_TRACKS
+            if (foundNames.size === 0 && location.protocol.startsWith('http')) {
+                const candidates = [...CUSTOM_TRACKS];
+                for (let i = 1; i <= MAX_NUMBER_SCAN; i++) {
+                    candidates.push(String(i));
+                }
+                const checks = candidates.map(async (baseName) => {
+                    try {
+                        const res = await fetch(`${baseName}.mp3`, { method: 'HEAD' });
+                        if (res.ok) return baseName;
+                    } catch (e) {}
+                    return null;
+                });
+                const results = await Promise.all(checks);
+                results.forEach(name => {
+                    if (name) foundNames.add(name);
+                });
+            }
+
+            // Sắp xếp tên file theo thứ tự tự nhiên (1, 2, 3... 10)
+            const sortedNames = Array.from(foundNames).sort((a, b) => 
+                a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+            );
+
+            if (sortedNames.length > 0) {
+                availableTracks = sortedNames.map(name => ({
+                    name: name,
+                    mp3Url: `${name}.mp3`,
+                    txtUrl: `${name}.txt`,
+                    txtContent: null
+                }));
+                populateTrackSelect();
+                await loadTrack(availableTracks[0].name);
+            } else {
+                trackSelect.innerHTML = `<option value="">-- Hãy chọn file bên dưới --</option>`;
+                updateMainSubtitle("Vui lòng chọn các file .mp3 và .txt từ máy của bạn.");
+                localFallback.style.display = 'block';
+            }
+        }
+
+        function populateTrackSelect() {
+            trackSelect.innerHTML = '';
+            availableTracks.forEach(track => {
+                const opt = document.createElement('option');
+                opt.value = track.name;
+                opt.textContent = `${track.name}.mp3`;
+                trackSelect.appendChild(opt);
+            });
+        }
+
+        function handleTrackChange(trackName) {
+            if (trackName) {
+                loadTrack(trackName);
+            }
+        }
+
+        // --- 2. TẢI CẶP FILE MP3 VÀ TXT TƯƠNG ỨNG ---
+        async function loadTrack(trackName) {
+            const track = availableTracks.find(t => t.name === trackName);
+            if (!track) return;
+
+            // Reset các chế độ lặp khi đổi bài
+            resetAB();
+            stopSentenceLoop();
+            currentSentenceIndex = -1;
+            sentences = [];
+            sentencesListDiv.innerHTML = '';
+
+            // Gán nguồn phát MP3
+            media.src = track.mp3Url;
+            media.load();
+
+            // Nạp ngầm MP3 dạng Blob để tua/lặp mượt khi offline (chỉ áp dụng với URL mạng)
+            if (!track.mp3Url.startsWith('blob:')) {
+                fetch(track.mp3Url)
+                    .then(res => res.ok ? res.blob() : Promise.reject())
+                    .then(blob => {
+                        const curTime = media.currentTime;
+                        const wasPaused = media.paused;
+                        media.src = URL.createObjectURL(blob);
+                        media.currentTime = curTime;
+                        if (!wasPaused) media.play();
+                    })
+                    .catch(() => {});
+            }
+
+            // Tải nội dung file .txt tương ứng
+            try {
+                let text = track.txtContent;
+                if (text === null && track.txtUrl) {
+                    const response = await fetch(track.txtUrl);
+                    if (!response.ok) throw new Error("Không tìm thấy file " + track.txtUrl);
+                    text = await response.text();
+                }
+                if (text) {
+                    processTXT(text);
+                    updateMainSubtitle(`Đã tải <b>${track.name}.mp3</b> & <b>${track.name}.txt</b>.<br>Bấm Play hoặc chọn câu để nghe.`);
+                } else {
+                    throw new Error("Thiếu file txt");
+                }
+            } catch (error) {
+                updateMainSubtitle(`Đã tải <b>${track.name}.mp3</b> (Chưa tìm thấy file <b>${track.name}.txt</b>).`);
+            }
+        }
+
+        // Hỗ trợ chọn nhiều file .mp3 và .txt trực tiếp từ máy
+        document.getElementById('multiFileUpload').addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            const trackMap = {};
+            for (const file of files) {
+                const dotIdx = file.name.lastIndexOf('.');
+                if (dotIdx === -1) continue;
+                const baseName = file.name.substring(0, dotIdx);
+                const ext = file.name.substring(dotIdx + 1).toLowerCase();
+
+                if (!trackMap[baseName]) {
+                    trackMap[baseName] = { name: baseName, mp3Url: '', txtUrl: '', txtContent: null };
+                }
+                if (ext === 'mp3' || file.type.startsWith('audio/')) {
+                    trackMap[baseName].mp3Url = URL.createObjectURL(file);
+                } else if (ext === 'txt') {
+                    trackMap[baseName].txtContent = await file.text();
+                }
+            }
+
+            const newTracks = Object.values(trackMap)
+                .filter(t => t.mp3Url !== '')
+                .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+            if (newTracks.length > 0) {
+                availableTracks = newTracks;
+                populateTrackSelect();
+                await loadTrack(availableTracks[0].name);
+            } else {
+                alert("Vui lòng chọn ít nhất 1 file .mp3!");
+            }
+        });
+
+        // --- 3. XỬ LÝ NỘI DUNG FILE TXT (HỖ TRỢ CẢ ĐỊNH DẠNG CÓ MỐC THỜI GIAN VÀ VĂN BẢN THUẦN) ---
+        function processTXT(data) {
+            const cleanData = data.replace(/\r/g, '').trim();
+            
+            // Trường hợp 1: Trong file .txt có chứa mốc thời gian kiểu SRT (00:00:00,000 --> 00:00:05,000)
+            if (cleanData.includes('-->')) {
+                isPlainTextWithoutTime = false;
+                const blocks = cleanData.split('\n\n');
+                const parsedData = [];
+                blocks.forEach(block => {
+                    const lines = block.split('\n');
+                    if (lines.length >= 2) {
+                        const timeLineIdx = lines.findIndex(l => l.includes('-->'));
+                        if (timeLineIdx !== -1) {
+                            const timeMatch = lines[timeLineIdx].match(/(\d{2}:\d{2}:\d{2}[,.]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,.]\d{3})/);
+                            if (timeMatch) {
+                                const textContent = lines.slice(timeLineIdx + 1).join(' ')
+                                    .replace(/<[^>]*>?/gm, '')
+                                    .replace(/\[.*?\]/g, '')
+                                    .replace(/>>/g, '')
+                                    .trim();
+                                parsedData.push({
+                                    start: timeToSeconds(timeMatch[1]),
+                                    end: timeToSeconds(timeMatch[2]),
+                                    text: textContent
+                                });
+                            }
+                        }
+                    }
+                });
+                sentences = groupSentences(parsedData);
+                renderSentencesList();
+            } else {
+                // Trường hợp 2: File .txt là văn bản thuần túy không có mốc thời gian -> Tự tách câu theo dấu chấm (. ! ?)
+                isPlainTextWithoutTime = true;
+                const cleanedText = cleanData
+                    .replace(/\[.*?\]/g, '')
+                    .replace(/>>/g, '')
+                    .replace(/\n+/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                const rawSentences = cleanedText.match(/[^.!?]+[.!?]+(?:\s|$)\vert{}[^.!?]+$/g) || [cleanedText];
+                sentences = rawSentences.map(s => ({
+                    start: 0,
+                    end: 0,
+                    text: s.trim()
+                })).filter(s => s.text.length > 0);
+
+                distributeTimestampsByLength();
+                renderSentencesList();
+            }
+        }
+
+        // Nếu file .txt không có sẵn mốc thời gian, tự động chia thời gian theo độ dài từng câu khi MP3 tải xong
+        function distributeTimestampsByLength() {
+            if (!isPlainTextWithoutTime || sentences.length === 0) return;
+            const totalDuration = (media.duration && isFinite(media.duration)) ? media.duration : sentences.length * 5;
+            const totalChars = sentences.reduce((acc, s) => acc + s.text.length, 0) || 1;
+            
+            let currentStart = 0;
+            sentences.forEach((s, idx) => {
+                const duration = (s.text.length / totalChars) * totalDuration;
+                s.start = currentStart;
+                s.end = (idx === sentences.length - 1) ? totalDuration : (currentStart + duration);
+                currentStart = s.end;
+            });
+        }
+
+        media.addEventListener('loadedmetadata', () => {
+            if (isPlainTextWithoutTime && sentences.length > 0) {
+                distributeTimestampsByLength();
+                renderSentencesList();
+            }
+        });
+
+        function groupSentences(srtData) {
+            let result = [], currentSentence = null;
+            for (let i = 0; i < srtData.length; i++) {
+                let text = srtData[i].text.replace(/\n/g, ' ').trim();
+                if (!text) continue;
+
+                let parts = text.match(/.*?[.!?]+(?:\s|$)|.+/g) || [text];
+
+                for (let j = 0; j < parts.length; j++) {
+                    let part = parts[j].trim();
+                    if (!part) continue;
+
+                    if (!currentSentence) {
+                        currentSentence = { start: srtData[i].start, end: srtData[i].end, text: part };
+                    } else {
+                        currentSentence.end = srtData[i].end;
+                        currentSentence.text += " " + part;
+                    }
+                    
+                    if (part.match(/[.!?]["”']?$/)) {
+                        result.push({...currentSentence});
+                        currentSentence = null;
+                    }
+                }
+            }
+            if (currentSentence) {
+                result.push(currentSentence);
+            }
+            return result;
+        }
+
+        function timeToSeconds(timeStr) {
+            const parts = timeStr.replace(',', '.').split(':');
+            return (parseFloat(parts[0]) * 3600) + (parseFloat(parts[1]) * 60) + parseFloat(parts[2]);
+        }
+
+        function renderSentencesList() {
+            sentencesListDiv.innerHTML = '';
+            selectedSentences = [];
+            isSentenceLoopMode = false;
+            
+            sentences.forEach((sentence, index) => {
+                const div = document.createElement('div');
+                div.className = 'sentence-item';
+                div.id = 'sentence-' + index;
+                
+                div.innerHTML = `
+                    <input type="checkbox" class="sentence-checkbox" id="chk-${index}">
+                    <div class="sentence-number">${index + 1}.</div>
+                    <div class="sentence-text">
+                        <div>${sentence.text}</div>
+                        <span class="time-badge">⏳ ${formatTime(sentence.start)} - ${formatTime(sentence.end)}</span>
+                    </div>
+                `;
+                
+                div.onclick = (e) => handleRowClick(index, e);
+                sentencesListDiv.appendChild(div);
+            });
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+
+        function handleRowClick(index, event) {
+            const chk = document.getElementById('chk-' + index);
+            if (event.target.type !== 'checkbox') {
+                chk.checked = !chk.checked;
+            }
+            
+            const isChecked = chk.checked;
+            const idxInArr = selectedSentences.indexOf(index);
+            
+            if (isChecked && idxInArr === -1) {
+                selectedSentences.push(index);
+                document.getElementById('sentence-' + index).classList.add('selected');
+            } else if (!isChecked && idxInArr !== -1) {
+                selectedSentences.splice(idxInArr, 1);
+                document.getElementById('sentence-' + index).classList.remove('selected');
+            }
+            
+            selectedSentences.sort((a, b) => a - b);
+            
+            if (isSentenceLoopMode && selectedSentences.length === 0) {
+                stopSentenceLoop();
+            }
+        }
+
+        function toggleSentenceLoop() {
+            if (isSentenceLoopMode) {
+                stopSentenceLoop();
+            } else {
+                if (selectedSentences.length === 0) {
+                    alert("Vui lòng tích chọn ít nhất 1 câu ở danh sách bên dưới!");
+                    return;
+                }
+                if (isABLoopMode) resetAB();
+                
+                isSentenceLoopMode = true;
+                const btn = document.getElementById('btnToggleLoop');
+                btn.classList.add('active');
+                btn.innerText = "🛑 Đang Lặp Câu Chọn... (Bấm để Dừng)";
+                
+                media.currentTime = sentences[selectedSentences[0]].start;
+                media.play();
+            }
+        }
+
+        function stopSentenceLoop() {
+            isSentenceLoopMode = false;
+            const btn = document.getElementById('btnToggleLoop');
+            btn.classList.remove('active');
+            btn.innerText = "🔄 Bắt Đầu Lặp Các Câu Đã Chọn";
+        }
+
+        function clearSelection() {
+            selectedSentences = [];
+            document.querySelectorAll('.sentence-item').forEach(item => {
+                item.classList.remove('selected');
+                const chk = item.querySelector('input[type="checkbox"]');
+                if (chk) chk.checked = false;
+            });
+            if (isSentenceLoopMode) stopSentenceLoop();
+        }
+
+        // --- 4. LOGIC CẬP NHẬT THỜI GIAN CHÍNH ---
+        media.addEventListener('timeupdate', () => {
+            const currentTime = media.currentTime;
+            
+            if (isSentenceLoopMode && selectedSentences.length > 0) {
+                let blocks = getAllContinuousBlocks();
+                
+                let currentBlock = null;
+                let currentBlockIdx = -1;
+                
+                for (let i = 0; i < blocks.length; i++) {
+                    let b = blocks[i];
+                    if (currentTime >= b.start - 0.3 && currentTime <= b.end + 0.05) {
+                        currentBlock = b;
+                        currentBlockIdx = i;
+                        break;
+                    }
+                }
+
+                if (!currentBlock) {
+                    let nextBlock = blocks.find(b => b.start > currentTime);
+                    if (nextBlock) {
+                        media.currentTime = nextBlock.start;
+                        media.play();
+                        return;
+                    } else {
+                        media.currentTime = blocks[0].start;
+                        media.play();
+                        return;
+                    }
+                }
+
+                let foundIdx = -1;
+                for (let idx of currentBlock.indices) {
+                    if (currentTime >= sentences[idx].start && currentTime <= sentences[idx].end) {
+                        foundIdx = idx;
+                        break;
+                    }
+                }
+                if (foundIdx === -1) foundIdx = currentBlock.indices[0];
+
+                if (currentSentenceIndex !== foundIdx) {
+                    currentSentenceIndex = foundIdx;
+                    updateMainSubtitle(sentences[foundIdx].text);
+                    updateHighlight(foundIdx);
+                }
+
+                if (currentTime >= currentBlock.end - 0.05) {
+                    if (currentBlockIdx < blocks.length - 1) {
+                        media.currentTime = blocks[currentBlockIdx + 1].start;
+                        media.play();
+                    } else {
+                        media.currentTime = blocks[0].start;
+                        media.play();
+                    }
+                }
+                
+                return; 
+            }
+
+            if (isABLoopMode && abState === 2) {
+                if (currentTime >= loopB) {
+                    media.currentTime = loopA;
+                }
+            }
+            
+            let foundIndex = -1;
+            for (let i = 0; i < sentences.length; i++) {
+                if (currentTime >= sentences[i].start && currentTime <= sentences[i].end) {
+                    foundIndex = i;
+                    break;
+                }
+            }
+
+            if (foundIndex !== -1) {
+                if (currentSentenceIndex !== foundIndex) {
+                    currentSentenceIndex = foundIndex;
+                    updateMainSubtitle(sentences[foundIndex].text);
+                    updateHighlight(foundIndex);
+                }
+            } else {
+                if (!media.paused && !isSentenceLoopMode) {
+                    updateMainSubtitle("♪ ♪ ♪");
+                    updateHighlight(-1);
+                }
+            }
+        });
+
+        function getAllContinuousBlocks() {
+            if (selectedSentences.length === 0) return [];
+            let sortedSelected = [...selectedSentences].sort((a, b) => a - b);
+            
+            let blocks = [];
+            let currentBlock = {
+                start: sentences[sortedSelected[0]].start,
+                end: sentences[sortedSelected[0]].end,
+                indices: [sortedSelected[0]]
+            };
+
+            for (let i = 1; i < sortedSelected.length; i++) {
+                let prevIdx = sortedSelected[i - 1];
+                let currIdx = sortedSelected[i];
+                
+                if (currIdx === prevIdx + 1) {
+                    currentBlock.end = sentences[currIdx].end;
+                    currentBlock.indices.push(currIdx);
+                } else {
+                    blocks.push(currentBlock);
+                    currentBlock = {
+                        start: sentences[currIdx].start,
+                        end: sentences[currIdx].end,
+                        indices: [currIdx]
+                    };
+                }
+            }
+            blocks.push(currentBlock);
+            return blocks;
+        }
+
+        function updateHighlight(index) {
+            document.querySelectorAll('.sentence-item').forEach(item => item.classList.remove('current'));
+            if (index !== -1) {
+                const el = document.getElementById('sentence-' + index);
+                if (el) {
+                    el.classList.add('current');
+                    if(!media.paused) {
+                        const container = document.getElementById('sentencesList');
+                        const scrollPos = el.offsetTop - container.offsetTop - (container.clientHeight / 2) + (el.clientHeight / 2);
+                        container.scrollTop = scrollPos;
+                    }
+                }
+            }
+        }
+
+        function handleABClick() {
+            const btn = document.getElementById('btnAB');
+            if (abState === 0) {
+                loopA = media.currentTime;
+                abState = 1;
+                btn.innerText = `[ A-B ] Đã lấy A (${formatTime(loopA)}) - Bấm để đặt mốc B`;
+                btn.style.backgroundColor = "#ffc107";
+                btn.style.color = "#000";
+            } else if (abState === 1) {
+                loopB = media.currentTime;
+                if (loopB > loopA) {
+                    abState = 2;
+                    isABLoopMode = true;
+                    btn.innerText = `[ A-B ] Đang lặp: ${formatTime(loopA)} ⟷ ${formatTime(loopB)} (Bấm để TẮT)`;
+                    btn.style.backgroundColor = "#28a745";
+                    btn.style.color = "#fff";
+                    
+                    if (isSentenceLoopMode) stopSentenceLoop();
+                } else {
+                    alert("Mốc B phải nằm sau mốc A!");
+                    resetAB();
+                }
+            } else {
+                resetAB();
+            }
+        }
+
+        function resetAB() {
+            abState = 0;
+            isABLoopMode = false;
+            const btn = document.getElementById('btnAB');
+            btn.innerText = "[ A-B ] Bấm vào đây để đặt mốc A";
+            btn.style.backgroundColor = "#007bff";
+            btn.style.color = "#fff";
+        }
+
+        // Đăng ký Service Worker để lưu Offline
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(() => console.log('Đã lưu trang web để chạy Offline!'))
+                    .catch(err => console.log('Lỗi lưu Offline:', err));
+            });
+        }
+    </script>
+</body>
+</html>
