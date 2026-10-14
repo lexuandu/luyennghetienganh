@@ -1,7 +1,7 @@
 {
   "id": "/kinh-chanh-tinh-tan/",
-  "name": "Ver3",
-  "short_name": "Ver3",
+  "name": "Luyện nghe",
+  "short_name": "Luyện nghe",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
