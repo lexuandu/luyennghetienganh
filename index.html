@@ -275,18 +275,24 @@
                             const items = await res.json();
                             if (Array.isArray(items)) {
                                 const mp3Files = new Set();
-                                const txtFiles = new Set();
-                                items.forEach(item => {
-                                    if (item.name) {
-                                        const lower = item.name.toLowerCase();
-                                        if (lower.endsWith('.mp3')) mp3Files.add(item.name.slice(0, -4));
-                                        if (lower.endsWith('.txt')) txtFiles.add(item.name.slice(0, -4));
-                                        if (lower.endsWith('.srt')) srtFiles.add(item.name.slice(0, -4));
-                                    }
-                                });
-                                // Chỉ lấy các bài có đủ cả file .mp3 và file .txt cùng tên
+                                const subFiles = {}; // Lưu tên bài và đuôi mở rộng (.txt hoặc .srt)
+                                    items.forEach(item => {
+                                        if (item.name) {
+                                            const lower = item.name.toLowerCase();
+                                            if (lower.endsWith('.mp3')) {
+                                                mp3Files.add(item.name.slice(0, -4));
+                                            } else if (lower.endsWith('.txt')) {
+                                                subFiles[item.name.slice(0, -4)] = '.txt';
+                                            } else if (lower.endsWith('.srt')) {
+                                                subFiles[item.name.slice(0, -4)] = '.srt';
+                                            }
+                                        }
+                                    });
                                 mp3Files.forEach(name => {
-                                    if (txtFiles.has(name)) foundNames.add(name);
+                                    if (subFiles[name]) {
+                                        foundNames.add(name);
+                                        trackFileMap[name] = subFiles[name]; // Lưu lại đuôi file của bài này
+                                    }
                                 });
                             }
                         }
@@ -431,11 +437,11 @@
                     trackMap[baseName] = { name: baseName, mp3Url: '', txtUrl: '', txtContent: null };
                 }
                 if (ext === 'mp3' || file.type.startsWith('audio/')) {
-                    trackMap[baseName].mp3Url = URL.createObjectURL(file);
-                } else if (ext === 'txt') {
-                    trackMap[baseName].txtContent = await file.text();
-                }
-            }
+                        trackMap[baseName].mp3Url = URL.createObjectURL(file);
+                    } else if (ext === 'txt' || ext === 'srt') { // Thêm điều kiện nhận srt
+                        trackMap[baseName].subContent = await file.text();
+                    }
+                };
 
             const newTracks = Object.values(trackMap)
                 .filter(t => t.mp3Url !== '' && t.txtContent !== null)
