@@ -281,6 +281,7 @@
                                         const lower = item.name.toLowerCase();
                                         if (lower.endsWith('.mp3')) mp3Files.add(item.name.slice(0, -4));
                                         if (lower.endsWith('.txt')) txtFiles.add(item.name.slice(0, -4));
+                                        if (lower.endsWith('.srt')) srtFiles.add(item.name.slice(0, -4));
                                     }
                                 });
                                 // Chỉ lấy các bài có đủ cả file .mp3 và file .txt cùng tên
