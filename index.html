@@ -592,7 +592,7 @@
         </div>
 
         <!-- Khung nạp thư mục tự động bật khi phát hiện chạy trên PC -->
-        <div class="local-fallback" id="localFallback">
+        <div class="local-fallback" id="localFallback" style="display:none;">
             <b>💻 Chế độ chạy trên PC:</b> Chọn thư mục chứa các cặp file <code>.mp3</code>, <code>.srt</code> cùng tên và file <code>IPA.txt</code> dùng chung:
             <div class="local-folder-box" id="dropZone">
                 <label class="btn-folder-load">
@@ -801,10 +801,11 @@
 
         // --- 1. PHÁT HIỆN PC HAY MOBILE ---
         function isRunningOnPC() {
-            const ua = navigator.userAgent || "";
-            const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-            const isIPadTouch = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-            return (!isMobileUA && !isIPadTouch) || window.location.protocol === 'file:';
+            return false;
+            // const ua = navigator.userAgent || "";
+            // const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+            // const isIPadTouch = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            // return (!isMobileUA && !isIPadTouch) || window.location.protocol === 'file:';
         }
 
         function toggleLocalPanel() {
@@ -1148,13 +1149,13 @@
         async function initApp() {
             loadSavedFontSizeSettings();
 
-            const onPC = isRunningOnPC();
-            if (onPC) {
-                btnToggleLocal.style.display = 'inline-block';
-                if (window.location.protocol === 'file:') {
-                    localFallback.style.display = 'block';
-                }
-            }
+            // const onPC = isRunningOnPC();
+            // if (onPC) {
+            //     btnToggleLocal.style.display = 'inline-block';
+            //     if (window.location.protocol === 'file:') {
+            //         localFallback.style.display = 'block';
+            //     }
+            // }
 
             const folderInput = document.getElementById('folderUpload');
             if (folderInput) {
